@@ -1,5 +1,17 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { auth, onAuthStateChanged, signOut, signInWithPopup, googleProvider, type FirebaseUser } from '../lib/firebase';
+import {
+  auth,
+  onAuthStateChanged,
+  signOut,
+  signInWithPopup,
+  googleProvider,
+  githubProvider,
+  sendPasswordResetEmail,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  type FirebaseUser
+} from '../lib/firebase';
 
 interface User {
   id: string;
@@ -13,7 +25,10 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
+  loginWithGithub: () => Promise<void>;
   logout: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  sendMagicLink: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -23,6 +38,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if the user is signing in with a magic link
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) {
+        email = window.prompt('Please provide your email for confirmation');
+      }
+
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href)
+          .then(() => {
+            window.localStorage.removeItem('emailForSignIn');
+            window.history.replaceState(null, '', window.location.pathname);
+          })
+          .catch((error) => {
+            console.error('Error signing in with magic link:', error);
+          });
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         setUser({
@@ -50,6 +84,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithGithub = async () => {
+    try {
+      await signInWithPopup(auth, githubProvider);
+    } catch (error) {
+      console.error('GitHub Sign-In Error:', error);
+      throw error;
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('Password Reset Error:', error);
+      throw error;
+    }
+  };
+
+  const sendMagicLink = async (email: string) => {
+    try {
+      const actionCodeSettings = {
+        // Redirect back to the login page
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: true,
+      };
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
+    } catch (error) {
+      console.error('Magic Link Error:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -59,7 +126,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginWithGoogle, logout, loading }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      loginWithGoogle,
+      loginWithGithub,
+      logout,
+      sendPasswordReset,
+      sendMagicLink
+    }}>
       {!loading && children}
     </AuthContext.Provider>
   );
