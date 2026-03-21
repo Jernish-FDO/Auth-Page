@@ -10,6 +10,8 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
   type User as FirebaseUser
 } from 'firebase/auth';
 
@@ -35,5 +37,7 @@ export {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
   type FirebaseUser
 };

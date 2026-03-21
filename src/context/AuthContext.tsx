@@ -8,8 +8,6 @@ import {
   githubProvider,
   sendPasswordResetEmail,
   sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
   type FirebaseUser
 } from '../lib/firebase';
 
@@ -38,25 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if the user is signing in with a magic link
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      let email = window.localStorage.getItem('emailForSignIn');
-      if (!email) {
-        email = window.prompt('Please provide your email for confirmation');
-      }
-
-      if (email) {
-        signInWithEmailLink(auth, email, window.location.href)
-          .then(() => {
-            window.localStorage.removeItem('emailForSignIn');
-            window.history.replaceState(null, '', window.location.pathname);
-          })
-          .catch((error) => {
-            console.error('Error signing in with magic link:', error);
-          });
-      }
-    }
-
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         setUser({

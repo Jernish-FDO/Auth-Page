@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
+import AuthActionPage from './pages/AuthActionPage';
 import './App.css'
 
 const Forbidden = () => (
@@ -22,6 +23,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/auth/action" element={<AuthActionPage />} />
           <Route path="/forbidden" element={<Forbidden />} />
           
           <Route
