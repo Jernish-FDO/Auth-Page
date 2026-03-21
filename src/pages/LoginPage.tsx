@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Shield, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+// Added Eye and EyeOff icons here
+import { Mail, Lock, Shield, Loader2, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -17,6 +18,9 @@ export default function LoginPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+  
+  // State to manage password visibility
+  const [showPassword, setShowPassword] = React.useState(false);
   
   const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -61,6 +65,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#0a0a0a] flex flex-col md:flex-row font-sans selection:bg-luxury-900 selection:text-white dark:selection:bg-luxury-100 dark:selection:text-black">
+      {/* --- Left Branding Panel --- */}
       <div className="hidden md:flex md:w-1/2 bg-luxury-900 dark:bg-luxury-950 p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-20 pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-luxury-500 blur-[120px]" />
@@ -86,15 +91,16 @@ export default function LoginPage() {
         </div>
       </div>
 
+      {/* --- Right Form Panel --- */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12 lg:p-24 relative">
         <div className="absolute top-8 left-8 flex items-center gap-2 md:hidden">
           <Shield className="w-5 h-5 text-luxury-900 dark:text-white stroke-[1.5px]" />
           <span className="font-serif text-xl text-luxury-900 dark:text-white">AuthPage</span>
         </div>
 
-        <div className="w-full max-w-[400px] animate-slide-up">
+        <div className="w-full max-w-[400px] animate-slide-up ">
           <header className="mb-10">
-            <h1 className="text-4xl lg:text-5xl mb-3 text-luxury-950 dark:text-luxury-50">Welcome Back</h1>
+            <h1 className="text-4xl lg:text-5xl mb-3 text-luxury-950 dark:text-luxury-50 pt-16">Welcome Back</h1>
             <p className="text-luxury-500 dark:text-luxury-400">Enter your credentials to access your workspace.</p>
           </header>
 
@@ -106,7 +112,77 @@ export default function LoginPage() {
           )}
 
           <div className="space-y-6">
-            <button
+            
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* --- Email Field --- */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-luxury-400 ml-0.5" htmlFor="email">Email</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-luxury-400 transition-colors group-focus-within:text-luxury-950 dark:group-focus-within:text-white" />
+                  <input
+                    id="email"
+                    type="email"
+                    {...register('email')}
+                    className={`w-full pl-11 pr-4 py-4 bg-white dark:bg-luxury-950 border ${errors.email ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
+                    placeholder="e.g. hello@example.com"
+                  />
+                </div>
+                {errors.email && <p className="text-[11px] font-bold text-red-500 mt-1 ml-0.5 italic">{errors.email.message}</p>}
+              </div>
+
+              {/* --- Password Field --- */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between ml-0.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-luxury-400" htmlFor="password">Password</label>
+                  <a href="#" className="text-[10px] font-bold uppercase tracking-widest text-luxury-500 hover:text-luxury-950 dark:hover:text-white transition-colors">Reset?</a>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-luxury-400 transition-colors group-focus-within:text-luxury-950 dark:group-focus-within:text-white" />
+                  <input
+                    id="password"
+                    // Toggle type based on state
+                    type={showPassword ? 'text' : 'password'}
+                    {...register('password')}
+                    // Increased pr-4 to pr-11 so text avoids overlapping the icon
+                    className={`w-full pl-11 pr-11 py-4 bg-white dark:bg-luxury-950 border ${errors.password ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
+                    placeholder="••••••••"
+                  />
+                  {/* Eye Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-luxury-400 hover:text-luxury-950 dark:hover:text-white transition-colors focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-[11px] font-bold text-red-500 mt-1 ml-0.5 italic">{errors.password.message}</p>}
+              </div>
+              
+
+              <button
+                type="submit"
+                disabled={isSubmitting || isGoogleLoading}
+                className="w-full bg-luxury-950 dark:bg-white text-white dark:text-luxury-950 font-bold py-5 rounded-lg active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 group disabled:opacity-70"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </button>
+              <div className="relative flex items-center">
+              <div className="flex-grow border-t border-luxury-100 dark:border-luxury-900"></div>
+              <span className="flex-shrink mx-4 text-[10px] uppercase tracking-[0.2em] text-luxury-400 font-bold bg-[#fafafa] dark:bg-[#0a0a0a] px-2">
+                Or enter details
+              </span>
+              <div className="flex-grow border-t border-luxury-100 dark:border-luxury-900"></div>
+            </div>
+              <button
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading || isSubmitting}
               className="w-full flex items-center justify-center gap-3 px-6 py-4 border border-luxury-200 dark:border-luxury-800 rounded-lg bg-white dark:bg-luxury-900 hover:bg-luxury-50 dark:hover:bg-luxury-800/50 transition-all duration-300 group disabled:opacity-50"
@@ -124,62 +200,7 @@ export default function LoginPage() {
               <span className="font-medium text-luxury-700 dark:text-luxury-200">Continue with Google</span>
             </button>
             
-            <div className="relative flex items-center">
-              <div className="flex-grow border-t border-luxury-100 dark:border-luxury-900"></div>
-              <span className="flex-shrink mx-4 text-[10px] uppercase tracking-[0.2em] text-luxury-400 font-bold bg-[#fafafa] dark:bg-[#0a0a0a] px-2">
-                Or enter details
-              </span>
-              <div className="flex-grow border-t border-luxury-100 dark:border-luxury-900"></div>
-            </div>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-luxury-400 ml-0.5" htmlFor="email">Email</label>
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-luxury-400 transition-colors group-focus-within:text-luxury-950 dark:group-focus-within:text-white" />
-                  <input
-                    id="email"
-                    type="email"
-                    {...register('email')}
-                    className={`w-full pl-11 pr-4 py-4 bg-white dark:bg-luxury-950 border ${errors.email ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
-                    placeholder="e.g. hello@example.com"
-                  />
-                </div>
-                {errors.email && <p className="text-[11px] font-bold text-red-500 mt-1 ml-0.5 italic">{errors.email.message}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between ml-0.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-luxury-400" htmlFor="password">Password</label>
-                  <a href="#" className="text-[10px] font-bold uppercase tracking-widest text-luxury-500 hover:text-luxury-950 dark:hover:text-white transition-colors">Reset?</a>
-                </div>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-luxury-400 transition-colors group-focus-within:text-luxury-950 dark:group-focus-within:text-white" />
-                  <input
-                    id="password"
-                    type="password"
-                    {...register('password')}
-                    className={`w-full pl-11 pr-4 py-4 bg-white dark:bg-luxury-950 border ${errors.password ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
-                    placeholder="••••••••"
-                  />
-                </div>
-                {errors.password && <p className="text-[11px] font-bold text-red-500 mt-1 ml-0.5 italic">{errors.password.message}</p>}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || isGoogleLoading}
-                className="w-full bg-luxury-950 dark:bg-white text-white dark:text-luxury-950 font-bold py-5 rounded-lg active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 group disabled:opacity-70"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </>
-                )}
-              </button>
+            
             </form>
           </div>
 
