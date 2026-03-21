@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,6 +29,7 @@ export default function AuthActionPage() {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const isProcessing = useRef(false);
 
   const {
     register,
@@ -39,6 +40,10 @@ export default function AuthActionPage() {
   });
 
   useEffect(() => {
+    // Prevent double-execution in React StrictMode
+    if (isProcessing.current) return;
+    isProcessing.current = true;
+
     // Check if it's a magic link login first
     if (isSignInWithEmailLink(auth, window.location.href)) {
       setMode('signIn');
@@ -54,7 +59,7 @@ export default function AuthActionPage() {
             setSuccess('Successfully signed in! Redirecting to dashboard...');
             setTimeout(() => {
               navigate('/dashboard', { replace: true });
-            }, 2000);
+            }, 1000);
           })
           .catch((err) => {
             if (err.code === 'auth/email-already-in-use' || err.code === 'auth/credential-already-in-use') {
