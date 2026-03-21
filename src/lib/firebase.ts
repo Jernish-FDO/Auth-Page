@@ -12,6 +12,9 @@ import {
   signInWithEmailLink,
   confirmPasswordReset,
   verifyPasswordResetCode,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   type User as FirebaseUser
 } from 'firebase/auth';
 
@@ -39,5 +42,8 @@ export {
   signInWithEmailLink,
   confirmPasswordReset,
   verifyPasswordResetCode,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   type FirebaseUser
 };

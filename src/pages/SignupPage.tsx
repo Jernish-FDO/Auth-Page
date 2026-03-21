@@ -29,7 +29,7 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
-  const { loginWithGoogle, loginWithGithub } = useAuth();
+  const { loginWithGoogle, loginWithGithub, signupWithEmail } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -43,13 +43,16 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupFormValues) => {
     setError(null);
     setIsSubmitting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Signup attempt:', data);
-      throw new Error('Email/Password registration is not configured with Firebase yet. Please use Google Login.');
+      await signupWithEmail(data.email, data.password, data.name);
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      if (err.code === 'auth/email-already-in-use') {
+        setError('An account with this email already exists.');
+      } else {
+        setError(err.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

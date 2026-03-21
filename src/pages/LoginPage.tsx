@@ -26,7 +26,7 @@ export default function LoginPage() {
   // State to manage password visibility
   const [showPassword, setShowPassword] = React.useState(false);
 
-  const { loginWithGoogle, loginWithGithub, sendPasswordReset, sendMagicLink } = useAuth();
+  const { loginWithGoogle, loginWithGithub, loginWithEmail, sendPasswordReset, sendMagicLink } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
@@ -43,13 +43,16 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setError(null);
     setIsSubmitting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Login attempt:', data);
-      throw new Error('Email/Password login is not configured with Firebase yet. Please use Google Login.');
+      await loginWithEmail(data.email, data.password);
+      navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials');
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setError('Invalid email or password');
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

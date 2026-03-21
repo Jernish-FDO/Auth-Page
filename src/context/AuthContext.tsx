@@ -8,6 +8,9 @@ import {
   githubProvider,
   sendPasswordResetEmail,
   sendSignInLinkToEmail,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   type FirebaseUser
 } from '../lib/firebase';
 
@@ -24,6 +27,8 @@ interface AuthContextType {
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
   loginWithGithub: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  signupWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   sendMagicLink: (email: string) => Promise<void>;
@@ -72,6 +77,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithEmail = async (email: string, pass: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error) {
+      console.error('Email Sign-In Error:', error);
+      throw error;
+    }
+  };
+
+  const signupWithEmail = async (email: string, pass: string, name: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: name });
+        // After profile update, force a token refresh to update the user state with the new name
+        await userCredential.user.getIdToken(true);
+      }
+    } catch (error) {
+      console.error('Email Sign-Up Error:', error);
+      throw error;
+    }
+  };
+
   const sendPasswordReset = async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
@@ -110,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       loginWithGoogle,
       loginWithGithub,
+      loginWithEmail,
+      signupWithEmail,
       logout,
       sendPasswordReset,
       sendMagicLink
