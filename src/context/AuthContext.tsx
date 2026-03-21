@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
   auth,
   onAuthStateChanged,
@@ -90,9 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       if (userCredential.user) {
-        await updateProfile(userCredential.user, { displayName: name });
-        // After profile update, force a token refresh to update the user state with the new name
-        await userCredential.user.getIdToken(true);
+        try {
+          await updateProfile(userCredential.user, { displayName: name });
+          // After profile update, force a token refresh to update the user state with the new name
+          await userCredential.user.getIdToken(true);
+        } catch (profileError) {
+          console.error('Profile update failed during signup, but user was created:', profileError);
+          // Intentionally not throwing here to allow the signup flow to complete successfully
+        }
       }
     } catch (error) {
       console.error('Email Sign-Up Error:', error);
@@ -132,18 +137,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const value = useMemo(() => ({
+    user,
+    loading,
+    loginWithGoogle,
+    loginWithGithub,
+    loginWithEmail,
+    signupWithEmail,
+    logout,
+    sendPasswordReset,
+    sendMagicLink
+  }), [user, loading]);
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      loginWithGoogle,
-      loginWithGithub,
-      loginWithEmail,
-      signupWithEmail,
-      logout,
-      sendPasswordReset,
-      sendMagicLink
-    }}>
+    <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   );

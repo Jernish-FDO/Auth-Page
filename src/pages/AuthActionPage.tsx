@@ -3,8 +3,9 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { toast } from 'react-hot-toast';
 import { verifyPasswordResetCode, confirmPasswordReset, auth, isSignInWithEmailLink, signInWithEmailLink } from '../lib/firebase';
-import { Shield, Lock, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Shield, Lock, Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 const newPasswordSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -56,21 +57,34 @@ export default function AuthActionPage() {
         signInWithEmailLink(auth, savedEmail, window.location.href)
           .then(() => {
             window.localStorage.removeItem('emailForSignIn');
-            setSuccess('Successfully signed in! Redirecting to dashboard...');
+            const successMsg = 'Successfully signed in! Redirecting to dashboard...';
+            setSuccess(successMsg);
+            toast.success(successMsg);
             setTimeout(() => {
               navigate('/dashboard', { replace: true });
             }, 1000);
           })
           .catch((err) => {
+            let errorMsg = 'Error signing in with magic link.';
             if (err.code === 'auth/email-already-in-use' || err.code === 'auth/credential-already-in-use') {
-              setError('This email is already associated with a different sign-in method (like Google or GitHub). Please go back and sign in using that method.');
-            } else {
-              setError(err.message || 'Error signing in with magic link.');
+              errorMsg = 'This email is already associated with a different sign-in method (like Google or GitHub). Please go back and sign in using that method.';
+            } else if (err.code === 'auth/invalid-action-code') {
+              errorMsg = 'This magic link is invalid. It may have already been used.';
+            } else if (err.code === 'auth/expired-action-code') {
+              errorMsg = 'This magic link has expired. Please request a new one from the login page.';
+            } else if (err.code === 'auth/user-disabled') {
+              errorMsg = 'This user account has been disabled.';
+            } else if (err.message) {
+              errorMsg = err.message;
             }
+            setError(errorMsg);
+            toast.error(errorMsg);
             setIsVerifying(false);
           });
       } else {
-        setError('Email confirmation is required to sign in with this link.');
+        const errorMsg = 'Email confirmation is required to sign in with this link.';
+        setError(errorMsg);
+        toast.error(errorMsg);
         setIsVerifying(false);
       }
       return;
@@ -82,7 +96,9 @@ export default function AuthActionPage() {
     const actionCode = queryParams.get('oobCode');
 
     if (!actionMode || !actionCode) {
-      setError('Invalid request. Missing parameters.');
+      const errorMsg = 'Invalid request. Missing parameters.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       setIsVerifying(false);
       return;
     }
@@ -97,11 +113,22 @@ export default function AuthActionPage() {
           setIsVerifying(false);
         })
         .catch((err) => {
-          setError(err.message || 'Invalid or expired action code.');
+          let errorMsg = 'Invalid or expired action code.';
+          if (err.code === 'auth/invalid-action-code') {
+            errorMsg = 'This password reset link is invalid. It may have already been used.';
+          } else if (err.code === 'auth/expired-action-code') {
+            errorMsg = 'This password reset link has expired. Please request a new one.';
+          } else if (err.message) {
+            errorMsg = err.message;
+          }
+          setError(errorMsg);
+          toast.error(errorMsg);
           setIsVerifying(false);
         });
     } else {
-      setError(`Unsupported action mode: ${actionMode}`);
+      const errorMsg = `Unsupported action mode: ${actionMode}`;
+      setError(errorMsg);
+      toast.error(errorMsg);
       setIsVerifying(false);
     }
   }, [location, navigate]);
@@ -113,9 +140,26 @@ export default function AuthActionPage() {
 
     try {
       await confirmPasswordReset(auth, oobCode, data.password);
-      setSuccess('Your password has been successfully reset! You can now sign in with your new password.');
+      const successMsg = 'Your password has been successfully reset! You can now sign in with your new password.';
+      setSuccess(successMsg);
+      toast.success(successMsg);
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password. Please try again.');
+      let errorMsg = 'Failed to reset password. Please try again.';
+      if (err.code === 'auth/weak-password') {
+        errorMsg = 'The password provided is too weak.';
+      } else if (err.code === 'auth/expired-action-code') {
+        errorMsg = 'This reset link has expired. Please request a new one from the login page.';
+      } else if (err.code === 'auth/invalid-action-code') {
+        errorMsg = 'This reset link is invalid. It may have been used already.';
+      } else if (err.code === 'auth/user-disabled') {
+        errorMsg = 'This user account has been disabled.';
+      } else if (err.code === 'auth/user-not-found') {
+        errorMsg = 'No account found for this reset link.';
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,26 +217,25 @@ export default function AuthActionPage() {
               {mode === 'resetPassword' ? 'Reset Password' : 'Action Required'}
             </h1>
             <p className="text-luxury-500 dark:text-luxury-400">
-              {email ? `Updating credentials for ${email}` : 'Please complete the action below.'}
+              {error
+                ? 'An error occurred during verification.'
+                : success
+                  ? 'Action completed successfully.'
+                  : email
+                    ? `Updating credentials for ${email}`
+                    : 'Please complete the action below.'}
             </p>
           </header>
 
           {error && (
-            <div className="mb-8 p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg flex items-start gap-3 animate-fade-in">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
-              <div className="flex flex-col">
-                <p className="text-sm text-red-700 dark:text-red-400 font-medium">{error}</p>
-                <Link to="/login" className="text-xs text-red-600 dark:text-red-400 font-bold underline mt-2 hover:text-red-800 dark:hover:text-red-300">Return to login</Link>
-              </div>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-8 p-4 bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 rounded-lg flex items-start gap-3 animate-fade-in">
-              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
-              <div className="flex flex-col">
-                <p className="text-sm text-green-700 dark:text-green-400 font-medium">{success}</p>
-              </div>
+            <div className="mb-8 animate-fade-in">
+              <Link
+                to="/login"
+                className="w-full bg-luxury-950 dark:bg-white text-white dark:text-luxury-950 font-bold py-5 rounded-lg active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 group"
+              >
+                <span>Return to Sign In</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
           )}
 

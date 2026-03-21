@@ -3,9 +3,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 // Added Eye and EyeOff icons here
-import { Mail, Lock, User, UserPlus, Shield, Loader2, AlertCircle, Check, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, UserPlus, Shield, Loader2, Eye, EyeOff, Check } from 'lucide-react';
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -20,7 +21,6 @@ const signupSchema = z.object({
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
-  const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
   const [isGithubLoading, setIsGithubLoading] = React.useState(false);
@@ -41,7 +41,6 @@ export default function SignupPage() {
   });
 
   const onSubmit = async (data: SignupFormValues) => {
-    setError(null);
     setIsSubmitting(true);
 
     try {
@@ -49,9 +48,13 @@ export default function SignupPage() {
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
-        setError('An account with this email already exists.');
+        toast.error('An account with this email already exists.');
+      } else if (err.code === 'auth/weak-password') {
+        toast.error('Your password is too weak. Please choose a stronger password.');
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your internet connection.');
       } else {
-        setError(err.message || 'Registration failed. Please try again.');
+        toast.error(err.message || 'Registration failed. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -59,26 +62,40 @@ export default function SignupPage() {
   };
 
   const handleGoogleSignup = async () => {
-    setError(null);
     setIsGoogleLoading(true);
     try {
       await loginWithGoogle();
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Google Sign-Up failed');
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        toast.error('An account with this email already exists. Please sign in with the provider you originally used (e.g., Email, GitHub).');
+      } else if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User intentionally closed the popup
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your internet connection.');
+      } else {
+        toast.error(err.message || 'Google Sign-Up failed');
+      }
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
   const handleGithubSignup = async () => {
-    setError(null);
     setIsGithubLoading(true);
     try {
       await loginWithGithub();
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err.message || 'GitHub Sign-Up failed');
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        toast.error('An account with this email already exists. Please sign in with the provider you originally used (e.g., Email, Google).');
+      } else if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User intentionally closed the popup
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your internet connection.');
+      } else {
+        toast.error(err.message || 'GitHub Sign-Up failed');
+      }
     } finally {
       setIsGithubLoading(false);
     }
@@ -134,13 +151,6 @@ export default function SignupPage() {
             <h1 className="text-4xl lg:text-5xl mb-3 text-luxury-950 dark:text-luxury-50 pt-16">Create Account</h1>
             <p className="text-luxury-500 dark:text-luxury-400">Start your journey with refined security.</p>
           </header>
-
-          {error && (
-            <div className="mb-8 p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg flex items-start gap-3 animate-fade-in">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 dark:text-red-400 font-medium">{error}</p>
-            </div>
-          )}
 
           <div className="space-y-6">
             

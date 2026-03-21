@@ -57,37 +57,64 @@ sequenceDiagram
     Frontend (React)-->>User: Redirects to /dashboard
 ```
 
-## 🌳 Directory Tree Structure
+## 🌳 Project Structure & Files
 
-The project is structured for scalability and maintainability. Here is the core file tree:
+The project is structured for scalability and maintainability. Here is the complete file and directory tree of the application:
 
 ```text
-src/
-├── App.css                   # Global styles and Tailwind directives
-├── App.tsx                   # Main application routing layer
-├── index.css                 # Base CSS imports
-├── main.tsx                  # React DOM entry point
-├── assets/                   # Static assets (images, SVGs)
-│   ├── hero.png
-│   ├── react.svg
-│   └── vite.svg
-├── components/               # Reusable UI components
-│   └── ProtectedRoute.tsx    # Higher-order component for route guarding
-├── context/                  # React Context providers
-│   └── AuthContext.tsx       # Core Firebase authentication logic & global state
-├── hooks/                    # Custom React hooks
-├── lib/                      # Third-party library initializations
-│   └── firebase.ts           # Firebase SDK setup and provider exports
-└── pages/                    # Route-level components
-    ├── Dashboard.tsx         # Protected user dashboard
-    ├── LoginPage.tsx         # Sign-in interface (Email, Google, GitHub, Magic Link)
-    └── SignupPage.tsx        # Registration interface
+.
+├── public/                       # Public static assets served at the root path
+│   ├── favicon.svg               # Application favicon
+│   └── icons.svg                 # SVG sprite for icons
+├── skills/                       # Claude Code skills and AI assistant documentation
+│   ├── frontend-ui-ux-skill.md
+│   ├── plan-skill.md
+│   ├── react-auth-skill.md
+│   └── SKILL.md
+├── src/                          # Application source code
+│   ├── assets/                   # Local static assets bundled by Vite
+│   │   ├── hero.png
+│   │   ├── react.svg
+│   │   └── vite.svg
+│   ├── components/               # Reusable UI components
+│   │   └── ProtectedRoute.tsx    # Higher-order component for route guarding
+│   ├── context/                  # React Context providers
+│   │   └── AuthContext.tsx       # Core Firebase authentication logic & global state
+│   ├── hooks/                    # Custom React hooks directory
+│   ├── lib/                      # Third-party library initializations
+│   │   └── firebase.ts           # Firebase SDK setup and provider exports
+│   ├── pages/                    # Route-level components
+│   │   ├── AuthActionPage.tsx    # Handles Magic Links and Password Resets
+│   │   ├── Dashboard.tsx         # Protected user dashboard
+│   │   ├── LoginPage.tsx         # Sign-in interface (Email, Google, GitHub, Magic Link)
+│   │   └── SignupPage.tsx        # Registration interface
+│   ├── App.css                   # Global app styles
+│   ├── App.tsx                   # Main application routing layer
+│   ├── index.css                 # Base CSS and Tailwind directives
+│   └── main.tsx                  # React DOM entry point
+├── .env.local                    # Environment variables (ignored by Git)
+├── .gitignore                    # Git ignored files configuration
+├── CLAUDE.md                     # AI assistant instructions for the project
+├── eslint.config.js              # ESLint configuration
+├── index.html                    # Vite HTML entry point
+├── LICENSE                       # Project license
+├── package.json                  # NPM dependencies and scripts
+├── postcss.config.js             # PostCSS configuration for Tailwind
+├── tailwind.config.js            # Tailwind CSS configuration
+├── tsconfig.app.json             # TypeScript configuration for the app
+├── tsconfig.json                 # Base TypeScript configuration
+├── tsconfig.node.json            # TypeScript configuration for Node/Vite
+├── vercel.json                   # Vercel deployment configuration
+└── vite.config.ts                # Vite bundler configuration
 ```
+
+### Key Technologies
 
 - **Frontend:** React 19 (Hooks), TypeScript, Vite
 - **Styling:** Tailwind CSS, Lucide React (Icons)
 - **State Management & Routing:** React Context API, React Router v7
 - **Validation:** React Hook Form + Zod
+- **Notifications:** React Hot Toast
 - **Backend/Auth:** Firebase Authentication (v12 modular SDK)
 
 ## 🚀 Getting Started
@@ -128,13 +155,6 @@ npm run dev
 ```
 
 Navigate to `http://localhost:5173` to view the application.
-
-## 📁 Project Structure
-
-- `src/components/` - Reusable UI components
-- `src/context/` - React Context providers (e.g., `AuthContext.tsx` handles all Firebase logic)
-- `src/lib/` - Utility functions and Firebase initialization
-- `src/pages/` - Application routes (`LoginPage`, `SignupPage`, etc.)
 
 ## 📜 Commands
 

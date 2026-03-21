@@ -3,9 +3,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 // Added Eye and EyeOff icons here
-import { Mail, Lock, Shield, Loader2, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Shield, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -15,8 +16,6 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const [error, setError] = React.useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
   const [isGithubLoading, setIsGithubLoading] = React.useState(false);
@@ -41,7 +40,6 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    setError(null);
     setIsSubmitting(true);
 
     try {
@@ -49,9 +47,13 @@ export default function LoginPage() {
       navigate(from, { replace: true });
     } catch (err: any) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setError('Invalid email or password');
+        toast.error('Invalid email or password');
+      } else if (err.code === 'auth/too-many-requests') {
+        toast.error('Too many unsuccessful login attempts. Please try again later or reset your password.');
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your internet connection.');
       } else {
-        setError(err.message || 'Login failed. Please try again.');
+        toast.error(err.message || 'Login failed. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -59,26 +61,40 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    setError(null);
     setIsGoogleLoading(true);
     try {
       await loginWithGoogle();
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Google Sign-In failed');
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        toast.error('An account with this email already exists. Please sign in with the provider you originally used (e.g., Email, GitHub).');
+      } else if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User intentionally closed the popup, don't show an error
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your internet connection.');
+      } else {
+        toast.error(err.message || 'Google Sign-In failed');
+      }
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
   const handleGithubLogin = async () => {
-    setError(null);
     setIsGithubLoading(true);
     try {
       await loginWithGithub();
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'GitHub Sign-In failed');
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        toast.error('An account with this email already exists. Please sign in with the provider you originally used (e.g., Email, Google).');
+      } else if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User intentionally closed the popup
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your internet connection.');
+      } else {
+        toast.error(err.message || 'GitHub Sign-In failed');
+      }
     } finally {
       setIsGithubLoading(false);
     }
@@ -86,19 +102,23 @@ export default function LoginPage() {
 
   const handlePasswordReset = async (e: React.MouseEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccessMsg(null);
     const email = getValues('email');
     if (!email) {
-      setError('Please enter your email address first to reset password');
+      toast.error('Please enter your email address first to reset password');
       return;
     }
     setIsResetLoading(true);
     try {
       await sendPasswordReset(email);
-      setSuccessMsg('Password reset link sent to your email.');
+      toast.success('Password reset link sent to your email.');
     } catch (err: any) {
-      setError(err.message || 'Failed to send reset email');
+      if (err.code === 'auth/user-not-found') {
+        toast.error('No account found with this email address.');
+      } else if (err.code === 'auth/invalid-email') {
+        toast.error('Please enter a valid email address.');
+      } else {
+        toast.error(err.message || 'Failed to send reset email');
+      }
     } finally {
       setIsResetLoading(false);
     }
@@ -106,19 +126,23 @@ export default function LoginPage() {
 
   const handleMagicLink = async (e: React.MouseEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccessMsg(null);
     const email = getValues('email');
     if (!email) {
-      setError('Please enter your email address first for magic link login');
+      toast.error('Please enter your email address first for magic link login');
       return;
     }
     setIsMagicLinkLoading(true);
     try {
       await sendMagicLink(email);
-      setSuccessMsg('Magic link sent! Check your inbox to sign in.');
+      toast.success('Magic link sent! Check your inbox to sign in.');
     } catch (err: any) {
-      setError(err.message || 'Failed to send magic link');
+      if (err.code === 'auth/invalid-email') {
+        toast.error('Please enter a valid email address.');
+      } else if (err.code === 'auth/too-many-requests') {
+        toast.error('You have requested too many links recently. Please try again later.');
+      } else {
+        toast.error(err.message || 'Failed to send magic link');
+      }
     } finally {
       setIsMagicLinkLoading(false);
     }
@@ -164,22 +188,6 @@ export default function LoginPage() {
             <h1 className="text-4xl lg:text-5xl mb-3 text-luxury-950 dark:text-luxury-50 pt-16">Welcome Back</h1>
             <p className="text-luxury-500 dark:text-luxury-400">Enter your credentials to access your workspace.</p>
           </header>
-
-          {error && (
-            <div className="mb-8 p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg flex items-start gap-3 animate-fade-in">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 dark:text-red-400 font-medium">{error}</p>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="mb-8 p-4 bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 rounded-lg flex items-start gap-3 animate-fade-in">
-              <svg className="w-5 h-5 text-green-600 dark:text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-sm text-green-700 dark:text-green-400 font-medium">{successMsg}</p>
-            </div>
-          )}
 
           <div className="space-y-6">
             
