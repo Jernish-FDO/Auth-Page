@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User, UserPlus, Shield, Loader2, AlertCircle, Check } from 'lucide-react';
+// Added Eye and EyeOff icons here
+import { Mail, Lock, User, UserPlus, Shield, Loader2, AlertCircle, Check, Eye, EyeOff } from 'lucide-react';
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -22,6 +23,10 @@ export default function SignupPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+  
+  // State to manage password visibility
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   
   const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -64,6 +69,7 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#0a0a0a] flex flex-col md:flex-row font-sans selection:bg-luxury-900 selection:text-white dark:selection:bg-luxury-100 dark:selection:text-black">
+      {/* ... [Left section remains completely untouched] ... */}
       <div className="hidden md:flex md:w-1/2 bg-luxury-900 dark:bg-luxury-950 p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-20 pointer-events-none">
           <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-luxury-500 blur-[120px]" />
@@ -154,32 +160,54 @@ export default function SignupPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* --- Main Password Field --- */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-luxury-400 ml-0.5" htmlFor="password">Password</label>
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-luxury-400 transition-colors group-focus-within:text-luxury-950 dark:group-focus-within:text-white" />
                     <input
                       id="password"
-                      type="password"
+                      // Changed from "password" to conditional type
+                      type={showPassword ? 'text' : 'password'}
                       {...register('password')}
-                      className={`w-full pl-11 pr-4 py-4 bg-white dark:bg-luxury-950 border ${errors.password ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
+                      // Changed pr-4 to pr-11 so text doesn't hit the toggle icon
+                      className={`w-full pl-11 pr-11 py-4 bg-white dark:bg-luxury-950 border ${errors.password ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
                       placeholder="••••••••"
                     />
+                    {/* Toggle button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-luxury-400 hover:text-luxury-950 dark:hover:text-white transition-colors focus:outline-none"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.password && <p className="text-[11px] font-bold text-red-500 mt-1 ml-0.5 italic">{errors.password.message}</p>}
                 </div>
 
+                {/* --- Confirm Password Field --- */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-luxury-400 ml-0.5" htmlFor="confirmPassword">Confirm</label>
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-luxury-400 transition-colors group-focus-within:text-luxury-950 dark:group-focus-within:text-white" />
                     <input
                       id="confirmPassword"
-                      type="password"
+                      // Changed from "password" to conditional type
+                      type={showConfirmPassword ? 'text' : 'password'}
                       {...register('confirmPassword')}
-                      className={`w-full pl-11 pr-4 py-4 bg-white dark:bg-luxury-950 border ${errors.confirmPassword ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
+                      // Changed pr-4 to pr-11 so text doesn't hit the toggle icon
+                      className={`w-full pl-11 pr-11 py-4 bg-white dark:bg-luxury-950 border ${errors.confirmPassword ? 'border-red-400' : 'border-luxury-200 dark:border-luxury-800'} rounded-lg focus:ring-0 focus:border-luxury-950 dark:focus:border-white outline-none transition-all duration-300 text-luxury-950 dark:text-white placeholder:text-luxury-300 dark:placeholder:text-luxury-700`}
                       placeholder="••••••••"
                     />
+                     {/* Toggle button */}
+                     <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-luxury-400 hover:text-luxury-950 dark:hover:text-white transition-colors focus:outline-none"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmPassword && <p className="text-[11px] font-bold text-red-500 mt-1 ml-0.5 italic">{errors.confirmPassword.message}</p>}
                 </div>
