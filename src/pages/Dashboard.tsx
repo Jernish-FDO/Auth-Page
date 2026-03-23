@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import {
   LogOut, User as UserIcon, Shield, Activity, Search, Bell, Menu,
-  MailWarning, Loader2, Users, Eye, Star, Trash2, Edit2,
+  MailWarning, Loader2, Users, Eye, Star, Trash2,
   ShieldAlert, CheckCircle2, Zap
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -400,38 +400,27 @@ export default function Dashboard() {
                 </h3>
               </div>
               <div className="space-y-6">
-                {activitiesList.length > 0 ? activitiesList.map((activity, i) => (
-                  <div key={i} className="flex gap-4">
-                    <div className="mt-1">
-                      {activity.type === 'info' && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
-                      {activity.type === 'warning' && <ShieldAlert className="w-5 h-5 text-amber-500" />}
-                      {activity.type === 'success' && <Activity className="w-5 h-5 text-emerald-500" />}
-                      {activity.type === 'error' && <Trash2 className="w-5 h-5 text-red-500" />}
+                {activitiesList.length > 0 ? (
+                  activitiesList.map((activity, i) => (
+                    <div key={i} className="flex gap-4">
+                      <div className="mt-1">
+                        {activity.type === 'info' && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
+                        {activity.type === 'warning' && <ShieldAlert className="w-5 h-5 text-amber-500" />}
+                        {activity.type === 'success' && <Activity className="w-5 h-5 text-emerald-500" />}
+                        {activity.type === 'error' && <Trash2 className="w-5 h-5 text-red-500" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-luxury-950 dark:text-white">
+                          {activity.targetUser || activity.admin || 'System'}
+                        </p>
+                        <p className="text-xs text-luxury-500 mb-1">{activity.action}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-luxury-400">{activity.timeStr}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-luxury-950 dark:text-white">
-                        {activity.targetUser || activity.admin || 'System'}
-                      </p>
-                      <p className="text-xs text-luxury-500 mb-1">{activity.action}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-luxury-400">{activity.timeStr}</p>
-                    </div>
-                  </div>
-                )) : MOCK_ACTIVITIES.map((activity, i) => (
-                  <div key={i} className="flex gap-4 opacity-50">
-                    <div className="mt-1">
-                      {activity.type === 'info' && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
-                      {activity.type === 'warning' && <ShieldAlert className="w-5 h-5 text-amber-500" />}
-                      {activity.type === 'success' && <Activity className="w-5 h-5 text-emerald-500" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-luxury-950 dark:text-white">
-                        {activity.user}
-                      </p>
-                      <p className="text-xs text-luxury-500 mb-1">{activity.action}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-luxury-400">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-xs text-luxury-500 italic">No recent activity detected.</p>
+                )}
               </div>
             </div>
 
