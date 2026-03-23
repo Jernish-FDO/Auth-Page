@@ -15,6 +15,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
+  applyActionCode,
   type User as FirebaseUser
 } from 'firebase/auth';
 
@@ -45,5 +47,7 @@ export {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
+  applyActionCode,
   type FirebaseUser
 };

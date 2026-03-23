@@ -11,6 +11,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
   type FirebaseUser
 } from '../lib/firebase';
 
@@ -20,6 +21,7 @@ interface User {
   name: string | null;
   photoURL?: string | null;
   role?: string;
+  emailVerified: boolean;
 }
 
 interface AuthContextType {
@@ -32,6 +34,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   sendMagicLink: (email: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
           role: 'user',
+          emailVerified: firebaseUser.emailVerified,
         });
       } else {
         setUser(null);
@@ -92,15 +96,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userCredential.user) {
         try {
           await updateProfile(userCredential.user, { displayName: name });
+          // Send verification email
+          await sendEmailVerification(userCredential.user);
           // After profile update, force a token refresh to update the user state with the new name
           await userCredential.user.getIdToken(true);
         } catch (profileError) {
-          console.error('Profile update failed during signup, but user was created:', profileError);
+          console.error('Profile update/verification failed during signup:', profileError);
           // Intentionally not throwing here to allow the signup flow to complete successfully
         }
       }
     } catch (error) {
       console.error('Email Sign-Up Error:', error);
+      throw error;
+    }
+  };
+
+  const resendVerification = async () => {
+    try {
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+      } else {
+        throw new Error('No user is currently signed in.');
+      }
+    } catch (error) {
+      console.error('Resend Verification Error:', error);
       throw error;
     }
   };
@@ -146,7 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signupWithEmail,
     logout,
     sendPasswordReset,
-    sendMagicLink
+    sendMagicLink,
+    resendVerification
   }), [user, loading]);
 
   return (

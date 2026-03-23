@@ -1,8 +1,40 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, ArrowUpRight, Activity, ShieldCheck, Clock, Settings, Bell, Search, Menu } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, ArrowUpRight, Activity, ShieldCheck, Clock, Settings, Bell, Search, Menu, MailWarning, Loader2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, resendVerification } = useAuth();
+  const [isResending, setIsResending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setInterval(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const handleResendVerification = async () => {
+    if (countdown > 0) return;
+
+    setIsResending(true);
+    try {
+      await resendVerification();
+      toast.success('Verification email sent! Please check your inbox.');
+      setCountdown(60); // 60 seconds cooldown
+    } catch (err: any) {
+      if (err.code === 'auth/too-many-requests') {
+        toast.error('Too many requests. Please wait a few minutes before trying again.');
+        setCountdown(60);
+      } else {
+        toast.error(err.message || 'Failed to resend verification email.');
+      }
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#0a0a0a] font-sans selection:bg-luxury-900 selection:text-white dark:selection:bg-luxury-100 dark:selection:text-black">
@@ -57,6 +89,32 @@ export default function Dashboard() {
           </div>
         </div>
       </nav>
+
+      {!user?.emailVerified && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 lg:px-12 py-4">
+          <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-500">
+              <MailWarning className="w-5 h-5" />
+              <p className="text-sm font-medium">
+                Please verify your email address to unlock full account capabilities.
+              </p>
+            </div>
+            <button
+              onClick={handleResendVerification}
+              disabled={isResending || countdown > 0}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed min-w-[200px] justify-center"
+            >
+              {isResending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : countdown > 0 ? (
+                `Resend in ${countdown}s`
+              ) : (
+                'Resend Verification Link'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-screen-2xl mx-auto py-12 px-6 lg:px-12">
         <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 animate-slide-up">

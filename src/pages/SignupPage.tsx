@@ -5,12 +5,17 @@ import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-// Added Eye and EyeOff icons here
 import { Mail, Lock, User, UserPlus, Shield, Loader2, Eye, EyeOff, Check } from 'lucide-react';
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address').refine(
+    (email) => {
+      const domain = email.split('@')[1]?.toLowerCase();
+      return domain === 'gmail.com';
+    },
+    { message: 'Only @gmail.com email addresses are allowed' }
+  ),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
 }).refine((data) => data.password === data.confirmPassword, {

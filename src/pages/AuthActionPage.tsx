@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'react-hot-toast';
-import { verifyPasswordResetCode, confirmPasswordReset, auth, isSignInWithEmailLink, signInWithEmailLink } from '../lib/firebase';
+import { verifyPasswordResetCode, confirmPasswordReset, auth, isSignInWithEmailLink, signInWithEmailLink, applyActionCode } from '../lib/firebase';
 import { Shield, Lock, Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 const newPasswordSchema = z.object({
@@ -125,6 +125,27 @@ export default function AuthActionPage() {
           toast.error(errorMsg);
           setIsVerifying(false);
         });
+    } else if (actionMode === 'verifyEmail') {
+      applyActionCode(auth, actionCode)
+        .then(() => {
+          const successMsg = 'Email verified successfully! You can now sign in to your verified account.';
+          setSuccess(successMsg);
+          toast.success(successMsg);
+          setIsVerifying(false);
+        })
+        .catch((err) => {
+          let errorMsg = 'Failed to verify email.';
+          if (err.code === 'auth/invalid-action-code') {
+            errorMsg = 'This verification link is invalid. It may have already been used.';
+          } else if (err.code === 'auth/expired-action-code') {
+            errorMsg = 'This verification link has expired. Please request a new one.';
+          } else if (err.message) {
+            errorMsg = err.message;
+          }
+          setError(errorMsg);
+          toast.error(errorMsg);
+          setIsVerifying(false);
+        });
     } else {
       const errorMsg = `Unsupported action mode: ${actionMode}`;
       setError(errorMsg);
@@ -216,11 +237,11 @@ export default function AuthActionPage() {
             <h1 className="text-4xl lg:text-5xl mb-3 text-luxury-950 dark:text-luxury-50 pt-16">
               {mode === 'resetPassword' ? 'Reset Password' : 'Action Required'}
             </h1>
-            <p className="text-luxury-500 dark:text-luxury-400">
+            <p className="text-luxury-500 dark:text-luxury-400 mt-2">
               {error
-                ? 'An error occurred during verification.'
+                ? error
                 : success
-                  ? 'Action completed successfully.'
+                  ? success
                   : email
                     ? `Updating credentials for ${email}`
                     : 'Please complete the action below.'}
