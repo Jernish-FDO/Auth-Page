@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import {
   auth,
+  db,
   onAuthStateChanged,
   signOut,
   signInWithPopup,
@@ -21,6 +24,7 @@ interface User {
   name: string | null;
   photoURL?: string | null;
   role?: string;
+  status?: string;
   emailVerified: boolean;
 }
 
@@ -44,46 +48,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        setUser({
-          id: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          role: 'user',
-          emailVerified: firebaseUser.emailVerified,
+        const userRef = doc(db, 'users', firebaseUser.uid);
+
+        unsubscribeSnapshot = onSnapshot(userRef, async (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+
+            // Real-time suspension check
+            if (data.status === 'suspended') {
+              await signOut(auth);
+              toast.error('Your account has been suspended by an administrator.');
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || data.name,
+              photoURL: firebaseUser.photoURL || data.photoURL,
+              role: data.role || 'user',
+              status: data.status || 'active',
+              emailVerified: firebaseUser.emailVerified,
+            });
+          } else {
+            // Fallback before doc is fully created
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              role: 'user',
+              status: 'active',
+              emailVerified: firebaseUser.emailVerified,
+            });
+          }
+          setLoading(false);
         });
       } else {
+        if (unsubscribeSnapshot) unsubscribeSnapshot();
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
 
-  const loginWithGoogle = async () => {
+  const handleOAuthLogin = async (provider: any) => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, provider);
+      const userRef = doc(db, 'users', result.user.uid);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          id: result.user.uid,
+          email: result.user.email,
+          name: result.user.displayName,
+          photoURL: result.user.photoURL,
+          role: 'user',
+          status: 'active',
+          createdAt: serverTimestamp(),
+          lastActive: serverTimestamp()
+        });
+      } else {
+        await setDoc(userRef, { lastActive: serverTimestamp() }, { merge: true });
+      }
     } catch (error) {
-      console.error('Google Sign-In Error:', error);
+      console.error('OAuth Sign-In Error:', error);
       throw error;
     }
   };
 
-  const loginWithGithub = async () => {
-    try {
-      await signInWithPopup(auth, githubProvider);
-    } catch (error) {
-      console.error('GitHub Sign-In Error:', error);
-      throw error;
-    }
-  };
+  const loginWithGoogle = () => handleOAuthLogin(googleProvider);
+  const loginWithGithub = () => handleOAuthLogin(githubProvider);
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const result = await signInWithEmailAndPassword(auth, email, pass);
+      await setDoc(doc(db, 'users', result.user.uid), { lastActive: serverTimestamp() }, { merge: true });
     } catch (error) {
       console.error('Email Sign-In Error:', error);
       throw error;
@@ -96,13 +148,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userCredential.user) {
         try {
           await updateProfile(userCredential.user, { displayName: name });
-          // Send verification email
           await sendEmailVerification(userCredential.user);
-          // After profile update, force a token refresh to update the user state with the new name
           await userCredential.user.getIdToken(true);
+
+          // Create Firestore Doc
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            id: userCredential.user.uid,
+            email: email,
+            name: name,
+            photoURL: null,
+            role: 'user',
+            status: 'active',
+            createdAt: serverTimestamp(),
+            lastActive: serverTimestamp()
+          });
         } catch (profileError) {
           console.error('Profile update/verification failed during signup:', profileError);
-          // Intentionally not throwing here to allow the signup flow to complete successfully
         }
       }
     } catch (error) {

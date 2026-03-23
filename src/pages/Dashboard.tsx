@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import {
   LogOut, User as UserIcon, Shield, Activity, Search, Bell, Menu,
   MailWarning, Loader2, Users, Eye, Star, Trash2, Edit2,
@@ -7,25 +9,24 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// --- Mock Data for Admin Dashboard ---
-const MOCK_USERS = [
-  { id: '1', name: 'Alice Smith', email: 'alice@gmail.com', role: 'user', status: 'active', lastActive: 'Just now' },
-  { id: '2', name: 'Bob Johnson', email: 'bob@gmail.com', role: 'admin', status: 'active', lastActive: '5 mins ago' },
-  { id: '3', name: 'Charlie Brown', email: 'charlie@gmail.com', role: 'user', status: 'suspended', lastActive: '2 days ago' },
-  { id: '4', name: 'Diana Prince', email: 'diana@gmail.com', role: 'user', status: 'active', lastActive: '1 hour ago' },
-];
-
+// --- Mock Data for Activities & Reviews (Since these need separate collections later) ---
 const MOCK_ACTIVITIES = [
-  { id: '101', user: 'Alice Smith', action: 'Logged into the system', time: 'Just now', type: 'info' },
-  { id: '102', user: 'Diana Prince', action: 'Updated account settings', time: '12 mins ago', type: 'info' },
-  { id: '103', user: 'Charlie Brown', action: 'Multiple failed login attempts', time: '1 hour ago', type: 'warning' },
-  { id: '104', user: 'System', action: 'Automated backup completed', time: '3 hours ago', type: 'success' },
+  { id: '101', user: 'System', action: 'Live database sync enabled', time: 'Just now', type: 'info' },
+  { id: '102', user: 'Admin', action: 'Upgraded security policies', time: '12 mins ago', type: 'success' },
 ];
 
 const MOCK_REVIEWS = [
   { id: '201', user: 'Alice Smith', rating: 5, comment: 'Absolutely love the new security features!', time: '1 day ago' },
-  { id: '202', user: 'Bob Johnson', rating: 4, comment: 'Clean interface, very fast response times.', time: '3 days ago' },
 ];
+
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  lastActive: any;
+}
 
 export default function Dashboard() {
   const { user, logout, resendVerification } = useAuth();
@@ -34,8 +35,38 @@ export default function Dashboard() {
 
   // Admin State
   const [activeTab, setActiveTab] = useState('Overview');
-  const [usersList, setUsersList] = useState(MOCK_USERS);
+  const [usersList, setUsersList] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch Users from Firestore in Real-Time
+  useEffect(() => {
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const usersArray: UserData[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        let lastActiveStr = 'Just now';
+        if (data.lastActive?.toDate) {
+          lastActiveStr = data.lastActive.toDate().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        usersArray.push({
+          id: doc.id,
+          name: data.name || 'Unknown User',
+          email: data.email || 'No Email',
+          role: data.role || 'user',
+          status: data.status || 'active',
+          lastActive: lastActiveStr
+        });
+      });
+      setUsersList(usersArray);
+    }, (error) => {
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load real-time users. Check Firestore permissions.");
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Handle countdown for resend verification
   useEffect(() => {
@@ -65,22 +96,25 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      setUsersList(usersList.filter(u => u.id !== id));
-      toast.success("User successfully deleted.");
+  const handleDeleteUser = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this user? (Note: This deletes their database profile. Auth deletion requires backend setup.)")) {
+      try {
+        await deleteDoc(doc(db, 'users', id));
+        toast.success("User successfully deleted from database.");
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to delete user.');
+      }
     }
   };
 
-  const toggleUserStatus = (id: string) => {
-    setUsersList(usersList.map(u => {
-      if (u.id === id) {
-        const newStatus = u.status === 'active' ? 'suspended' : 'active';
-        toast.success(`User status changed to ${newStatus}.`);
-        return { ...u, status: newStatus };
-      }
-      return u;
-    }));
+  const toggleUserStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    try {
+      await updateDoc(doc(db, 'users', id), { status: newStatus });
+      toast.success(`User status changed to ${newStatus}.`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update status.');
+    }
   };
 
   const filteredUsers = usersList.filter(u =>
@@ -203,8 +237,8 @@ export default function Dashboard() {
         {/* --- Key Metrics --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 animate-slide-up stagger-1">
           {[
-            { label: 'Total Users', value: '1,248', icon: Users, sub: '+12% this week', color: 'text-indigo-500' },
-            { label: 'Live Active Users', value: '42', icon: Activity, sub: 'Real-time monitoring', color: 'text-emerald-500' },
+            { label: 'Total Users', value: usersList.length.toString(), icon: Users, sub: 'Registered accounts', color: 'text-indigo-500' },
+            { label: 'Live Active Users', value: usersList.filter(u => u.status === 'active').length.toString(), icon: Activity, sub: 'Real-time monitoring', color: 'text-emerald-500' },
             { label: 'Page Views', value: '84.2K', icon: Eye, sub: '+5.4% this week', color: 'text-blue-500' },
             { label: 'Total Reviews', value: '312', icon: Star, sub: '4.8 Avg Rating', color: 'text-amber-500' }
           ].map((stat, i) => (
@@ -281,7 +315,7 @@ export default function Dashboard() {
                           <button onClick={() => toast('Edit user settings')} className="p-1.5 hover:bg-luxury-200 dark:hover:bg-luxury-800 rounded-md transition-colors text-luxury-500">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => toggleUserStatus(u.id)} className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-md transition-colors text-amber-500">
+                          <button onClick={() => toggleUserStatus(u.id, u.status)} className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-md transition-colors text-amber-500">
                             <ShieldAlert className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors text-red-500">
