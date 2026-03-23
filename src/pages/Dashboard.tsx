@@ -1,19 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import {
   LogOut, User as UserIcon, Shield, Activity, Search, Bell, Menu,
   MailWarning, Loader2, Users, Eye, Star, Trash2, Edit2,
-  MoreVertical, ShieldAlert, CheckCircle2, MessageSquare
+  ShieldAlert, CheckCircle2, Zap
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
-// --- Mock Data for Activities & Reviews (Since these need separate collections later) ---
-const MOCK_ACTIVITIES = [
-  { id: '101', user: 'System', action: 'Live database sync enabled', time: 'Just now', type: 'info' },
-  { id: '102', user: 'Admin', action: 'Upgraded security policies', time: '12 mins ago', type: 'success' },
-];
 
 const MOCK_REVIEWS = [
   { id: '201', user: 'Alice Smith', rating: 5, comment: 'Absolutely love the new security features!', time: '1 day ago' },
@@ -36,7 +30,9 @@ export default function Dashboard() {
   // Admin State
   const [activeTab, setActiveTab] = useState('Overview');
   const [usersList, setUsersList] = useState<UserData[]>([]);
+  const [activitiesList, setActivitiesList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [godMode, setGodMode] = useState(false);
 
   // Fetch Users from Firestore in Real-Time
   useEffect(() => {
@@ -68,14 +64,46 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
+  // Fetch Activities from Firestore in Real-Time
+  useEffect(() => {
+    const q = query(collection(db, 'activities'), orderBy('time', 'desc'), limit(10));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const activitiesArray: any[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        let timeStr = 'Just now';
+        if (data.time?.toDate) {
+          timeStr = data.time.toDate().toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        activitiesArray.push({ id: doc.id, ...data, timeStr });
+      });
+      setActivitiesList(activitiesArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Handle countdown for resend verification
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (countdown > 0) {
       timer = setInterval(() => setCountdown(c => c - 1), 1000);
     }
     return () => clearInterval(timer);
   }, [countdown]);
+
+  const logActivity = async (action: string, targetName: string, type: 'info' | 'warning' | 'success' | 'error') => {
+    try {
+      await addDoc(collection(db, 'activities'), {
+        admin: user?.name || 'Admin',
+        targetUser: targetName,
+        action,
+        type,
+        time: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Failed to log activity", e);
+    }
+  };
 
   const handleResendVerification = async () => {
     if (countdown > 0) return;
@@ -96,24 +124,39 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this user? (Note: This deletes their database profile. Auth deletion requires backend setup.)")) {
+  const handleDeleteUser = async (id: string, name: string) => {
+    if (window.confirm(`[GOD MODE] Erase ${name} from the database permanently? (Auth deletion requires backend setup)`)) {
       try {
         await deleteDoc(doc(db, 'users', id));
-        toast.success("User successfully deleted from database.");
+        toast.success(`User ${name} terminated.`);
+        await logActivity('Erased user record', name, 'error');
       } catch (error: any) {
         toast.error(error.message || 'Failed to delete user.');
       }
     }
   };
 
-  const toggleUserStatus = async (id: string, currentStatus: string) => {
+  const toggleUserStatus = async (id: string, currentStatus: string, name: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
       await updateDoc(doc(db, 'users', id), { status: newStatus });
-      toast.success(`User status changed to ${newStatus}.`);
+      toast.success(`User ${name} status changed to ${newStatus}.`);
+      await logActivity(`Changed status to ${newStatus}`, name, newStatus === 'active' ? 'success' : 'warning');
     } catch (error: any) {
       toast.error(error.message || 'Failed to update status.');
+    }
+  };
+
+  const toggleUserRole = async (id: string, currentRole: string, name: string) => {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    if (window.confirm(`[GOD MODE] Change ${name}'s role to ${newRole.toUpperCase()}?`)) {
+      try {
+        await updateDoc(doc(db, 'users', id), { role: newRole });
+        toast.success(`User ${name} is now ${newRole.toUpperCase()}.`);
+        await logActivity(`Changed role to ${newRole.toUpperCase()}`, name, 'info');
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to update role.');
+      }
     }
   };
 
@@ -123,16 +166,22 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0a0a0a] font-sans selection:bg-luxury-900 selection:text-white dark:selection:bg-luxury-100 dark:selection:text-black">
-      <nav className="bg-white/80 dark:bg-luxury-950/80 luxury-blur border-b border-luxury-100 dark:border-luxury-900 sticky top-0 z-50">
+    <div className={`min-h-screen font-sans selection:bg-luxury-900 selection:text-white dark:selection:bg-luxury-100 dark:selection:text-black transition-colors duration-500 ${godMode ? 'bg-red-950/5 dark:bg-[#050000]' : 'bg-[#fafafa] dark:bg-[#0a0a0a]'}`}>
+      <nav className={`luxury-blur border-b sticky top-0 z-50 transition-colors duration-500 ${godMode ? 'bg-red-50/80 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' : 'bg-white/80 dark:bg-luxury-950/80 border-luxury-100 dark:border-luxury-900'}`}>
         <div className="max-w-screen-2xl mx-auto px-6 lg:px-12">
           <div className="flex justify-between h-20 items-center">
             <div className="flex items-center gap-10">
-              <div className="flex items-center gap-2 group cursor-pointer">
-                <div className="w-10 h-10 bg-luxury-950 dark:bg-white rounded-xl flex items-center justify-center transition-transform group-hover:rotate-[10deg]">
-                  <Shield className="w-5 h-5 text-white dark:text-luxury-950 stroke-[1.5px]" />
+              <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setGodMode(!godMode)}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 group-hover:rotate-[10deg] ${godMode ? 'bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-luxury-950 dark:bg-white'}`}>
+                  {godMode ? (
+                    <Zap className="w-5 h-5 text-white stroke-[2px] animate-pulse" />
+                  ) : (
+                    <Shield className="w-5 h-5 text-white dark:text-luxury-950 stroke-[1.5px]" />
+                  )}
                 </div>
-                <span className="font-serif text-2xl tracking-tight text-luxury-950 dark:text-white">AdminPage</span>
+                <span className={`font-serif text-2xl tracking-tight transition-colors duration-500 ${godMode ? 'text-red-600 dark:text-red-500 font-bold drop-shadow-[0_0_8px_rgba(220,38,38,0.3)]' : 'text-luxury-950 dark:text-white'}`}>
+                  {godMode ? 'GOD MODE' : 'AdminPage'}
+                </span>
               </div>
 
               <div className="hidden lg:flex items-center gap-8 text-sm font-bold uppercase tracking-widest text-luxury-400">
@@ -140,7 +189,7 @@ export default function Dashboard() {
                   <button
                     key={item}
                     onClick={() => setActiveTab(item)}
-                    className={`transition-colors ${activeTab === item ? 'text-luxury-950 dark:text-white' : 'hover:text-luxury-950 dark:hover:text-white'}`}
+                    className={`transition-colors ${activeTab === item ? (godMode ? 'text-red-600 dark:text-red-500' : 'text-luxury-950 dark:text-white') : 'hover:text-luxury-950 dark:hover:text-white'}`}
                   >
                     {item}
                   </button>
@@ -281,16 +330,18 @@ export default function Dashboard() {
                     <th className="px-8 py-4 text-xs font-bold uppercase tracking-wider text-luxury-400">Role</th>
                     <th className="px-8 py-4 text-xs font-bold uppercase tracking-wider text-luxury-400">Status</th>
                     <th className="px-8 py-4 text-xs font-bold uppercase tracking-wider text-luxury-400">Last Active</th>
-                    <th className="px-8 py-4 text-xs font-bold uppercase tracking-wider text-luxury-400 text-right">Actions</th>
+                    <th className="px-8 py-4 text-xs font-bold uppercase tracking-wider text-luxury-400 text-right">
+                      {godMode ? <span className="text-red-500 animate-pulse drop-shadow-[0_0_5px_rgba(220,38,38,0.5)]">GOD CONTROLS</span> : 'Actions'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-luxury-100 dark:divide-luxury-900">
                   {filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-luxury-50 dark:hover:bg-luxury-900/20 transition-colors group">
+                    <tr key={u.id} className={`hover:bg-luxury-50 dark:hover:bg-luxury-900/20 transition-colors group ${godMode && u.role === 'admin' ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-luxury-100 dark:bg-luxury-800 flex items-center justify-center text-luxury-950 dark:text-white font-bold text-xs">
-                            {u.name.charAt(0)}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors duration-500 ${godMode && u.role === 'admin' ? 'bg-red-600 text-white shadow-[0_0_10px_rgba(220,38,38,0.4)]' : 'bg-luxury-100 dark:bg-luxury-800 text-luxury-950 dark:text-white'}`}>
+                            {u.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <p className="text-sm font-bold text-luxury-950 dark:text-white">{u.name}</p>
@@ -299,9 +350,12 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-8 py-4">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-luxury-100 text-luxury-600 dark:bg-luxury-800 dark:text-luxury-300'}`}>
-                          {u.role}
-                        </span>
+                        <button
+                          onClick={() => godMode ? toggleUserRole(u.id, u.role, u.name) : null}
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-all ${godMode ? 'hover:scale-105 cursor-pointer ring-1 ring-red-500/50 hover:ring-red-500' : 'cursor-default'} ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-luxury-100 text-luxury-600 dark:bg-luxury-800 dark:text-luxury-300'}`}
+                        >
+                          {u.role} {godMode && <Zap className="w-3 h-3 inline-block ml-1 opacity-50" />}
+                        </button>
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-2">
@@ -312,15 +366,14 @@ export default function Dashboard() {
                       <td className="px-8 py-4 text-xs text-luxury-500">{u.lastActive}</td>
                       <td className="px-8 py-4">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => toast('Edit user settings')} className="p-1.5 hover:bg-luxury-200 dark:hover:bg-luxury-800 rounded-md transition-colors text-luxury-500">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => toggleUserStatus(u.id, u.status)} className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-md transition-colors text-amber-500">
+                          <button onClick={() => toggleUserStatus(u.id, u.status, u.name)} className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-md transition-colors text-amber-500" title="Suspend/Unsuspend">
                             <ShieldAlert className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors text-red-500">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {godMode && (
+                            <button onClick={() => handleDeleteUser(u.id, u.name)} className="p-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-500 hover:text-white rounded-md transition-colors text-red-500 shadow-[0_0_10px_rgba(220,38,38,0.2)]" title="Obliterate Record">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -347,8 +400,24 @@ export default function Dashboard() {
                 </h3>
               </div>
               <div className="space-y-6">
-                {MOCK_ACTIVITIES.map((activity, i) => (
+                {activitiesList.length > 0 ? activitiesList.map((activity, i) => (
                   <div key={i} className="flex gap-4">
+                    <div className="mt-1">
+                      {activity.type === 'info' && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
+                      {activity.type === 'warning' && <ShieldAlert className="w-5 h-5 text-amber-500" />}
+                      {activity.type === 'success' && <Activity className="w-5 h-5 text-emerald-500" />}
+                      {activity.type === 'error' && <Trash2 className="w-5 h-5 text-red-500" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-luxury-950 dark:text-white">
+                        {activity.targetUser || activity.admin || 'System'}
+                      </p>
+                      <p className="text-xs text-luxury-500 mb-1">{activity.action}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-luxury-400">{activity.timeStr}</p>
+                    </div>
+                  </div>
+                )) : MOCK_ACTIVITIES.map((activity, i) => (
+                  <div key={i} className="flex gap-4 opacity-50">
                     <div className="mt-1">
                       {activity.type === 'info' && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
                       {activity.type === 'warning' && <ShieldAlert className="w-5 h-5 text-amber-500" />}

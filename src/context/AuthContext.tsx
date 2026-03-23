@@ -77,11 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               emailVerified: firebaseUser.emailVerified,
             });
           } else {
-            // Fallback before doc is fully created
+            // Document doesn't exist (Legacy user from Auth before Firestore was added)
+            // Create it automatically so they appear on the Admin Dashboard
+            await setDoc(userRef, {
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || 'Legacy User',
+              photoURL: firebaseUser.photoURL || null,
+              role: 'user',
+              status: 'active',
+              createdAt: serverTimestamp(),
+              lastActive: serverTimestamp()
+            });
+
             setUser({
               id: firebaseUser.uid,
               email: firebaseUser.email,
-              name: firebaseUser.displayName,
+              name: firebaseUser.displayName || 'Legacy User',
               photoURL: firebaseUser.photoURL,
               role: 'user',
               status: 'active',
